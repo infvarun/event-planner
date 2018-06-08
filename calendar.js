@@ -32,8 +32,47 @@ const calendar = {
         December:31
 };
 
+/**
+ * Generate latest calendar for all month
+ */
+(function init() {
+    // Set feb days based on leap year
+    setFebForLeap();
+    // Set webpage title with current year
+    setPageTitle();
+    // Get all relevant localStorage Data
+    getAllEventsFromLocalStorage();
+
+    // populate allMonths array with month name and generate monthly calendar array in yearCal[]
+    allMonths = Object.keys(calendar);
+    allMonths.forEach((cur)=>{
+        yearCal.push(generateMonthCal(cur));
+    });
+
+    // generate dom using yearCal
+    createCalendarInDOM();
+    refreshDOMWithClocks();
+})();
+
+/**
+ * Iterate over all keys of localStorage, its iterable we can use Object.keys(iterableObject)
+ * then populate the events in eventSaved map, to get respective event on date clicked as
+ * per usual flow.
+ */
+function getAllEventsFromLocalStorage() {
+    const storageKeys = Object.keys(localStorage);
+    let indexes = storageKeys.length;
+    
+    while(indexes--) {
+        //console.log(localStorage.getItem(storageKeys[indexes]));
+        if(localStorage.getItem(storageKeys[indexes])) {
+            eventSaved.set(storageKeys[indexes], JSON.parse(localStorage.getItem(storageKeys[indexes])));
+        }
+    }
+}
+
 // Set February a/c to leap year
-(function(year) {
+function setFebForLeap() {
         if(year % 400 === 0) {
             calendar.February = 29;
         } else if (year % 100 === 0) {
@@ -43,15 +82,16 @@ const calendar = {
         } else {
             calendar.February = 28;
         }
-})();
+};
 
 /**
  * Set Web page title to current year
  */
-(function() {
+function setPageTitle() {
     const title = document.head.getElementsByTagName('title');
-    title[0].innerText = `Planner ${year} 🚀`;
-})();
+    title[0].innerText = `Planner ${year} 📅`;
+};
+
 
 /**
  * Approach 2 : Create MultiDimensional array
@@ -99,24 +139,11 @@ function generateMonthCal(curMonth) {
 }
 
 /**
- * Generate latest calendar for all month
- */
-(function() {
-    allMonths = Object.keys(calendar);
-    allMonths.forEach((cur)=>{
-        yearCal.push(generateMonthCal(cur));
-    });
-
-    createCalendarInDOM();
-})();
-
-
-/**
  * Create dynamic table rows and data from yearCal array
  * Insert the html to DOM
  */
-function createCalendarInDOM() {
-    yearCal.forEach((month, index)=> {
+async function createCalendarInDOM() {
+    await yearCal.forEach((month, index)=> {
         let dynamicCalRows = '';
         month.forEach((curRow)=>{
             dynamicCalRows += `<tr style="text-align:center">`
@@ -192,22 +219,6 @@ function getMonthCardEnd() {
 }
 
 /**
- * 
- * @param {string} year 
- * @param {string} month 
- * @param {string} date 
- * @param {string} time 
- */
-function Booking(id, year, month, date, time, name) {
-    this.id = id;
-    this.year = year;
-    this.month = month;
-    this.date = date;
-    this.time = time;
-    this.name = name;
-}
-
-/**
  * Add event to clicked date and add  icon ⏰
  */
 function addEventToDate(event) {
@@ -230,13 +241,57 @@ function addEventToDate(event) {
     // generate unique id and save event
     const id = `${year}-${selectedMonth}-${selectedDate}-${eventTime}`;
     if(eventSaved.has(id)) {
-        alert('Already event saved for this time and date: '+ eventSaved.get(id));
+        alert('Already event saved for this time and date: '+ eventSaved.get(id).name);
     } else {
         eventSaved.set(id, `Event name: ${eventName}, Time: ${event.srcElement.id} @ ${eventTime}`);
+        //Persist this event for page refresh/ browser close
+        const eventData = new EventData(id, year, selectedMonth, selectedDate, eventTime, eventName);
+        setInLocalStorage(eventData);
         const dateAndClock = ['',' ⏰']
         let td = document.getElementById(event.srcElement.id).innerHTML;
         dateAndClock[0] = td.split(' ')[0];
         td = dateAndClock.join('');
         document.getElementById(event.srcElement.id).innerHTML = td;
+    }
+}
+
+/**
+ * Repopulate td with clocks as per events
+ */
+function refreshDOMWithClocks() {
+    eventSaved.forEach((value, key)=>{
+            const dateAndClock = ['',' ⏰']
+            let td = document.getElementById(`${value.month}-${value.date}`).innerHTML;
+            dateAndClock[0] = td.split(' ')[0];
+            td = dateAndClock.join('');
+            document.getElementById(`${value.month}-${value.date}`).innerHTML = td;
+    });
+}
+
+/**
+ * Persist in localStorage
+ */
+function setInLocalStorage(eventData) {
+    localStorage.setItem(eventData.id, JSON.stringify(eventData));
+}
+
+/**
+ * Get data from localStorage
+ */
+function getFromLocalStorage(id) {
+    return JSON.parse(localStorage.getItem(id));
+}
+
+/**
+ * EventData function expression (blueprint) for creating eventObject
+ */
+class EventData {
+    constructor(id, year, month, date, time, name) {
+        this.id = id;
+        this.year = year;
+        this.month = month;
+        this.date = date;
+        this.time = time;
+        this.name = name;
     }
 }
